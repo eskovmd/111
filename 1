@@ -82,35 +82,38 @@
 10. reboot
 11. apt-get update && apt-get install chrony nftables strongswan -y
 - WEB-L
-    1. hostnamectl set-hostname web-l; exec bash
-    2. vim /etc/net/ifaces/enp0s3/options
-        1. BOOTPROTO=static
-    3. vim /etc/net/ifaces/enp0s3/ipv4address
-        1. 10.10.10.110/24
-    4. vim /etc/net/ifaces/enp0s3/ipv4route
-        1. default via 10.10.10.1
-    5. systemctl restart network
-    6. reboot
-    7. apt-get update
+    1. hostnamectl set-hostname web-l
+2. cd /etc/net/ifaces/ens18/
+3. vim options
+    1. BOOTPROTO=static
+4. vim ipv4address
+    1. 10.10.10.110/24
+5. vim ipv4route
+    1. default via 10.10.10.1
+6. systemctl restart network
+7. reboot
+8. apt-get update && apt-get install chrony docker-io docker-compose nfs-clients -y
 - WEB-R
-    1. hostnamectl set-hostname web-r; exec bash
-    2. vim /etc/net/ifaces/enp0s3/options
-        1. BOOTPROTO=static
-    3. vim /etc/net/ifaces/enp0s3/ipv4address
-        1. 20.20.20.100/24
-    4. vim /etc/net/ifaces/enp0s3/ipv4route
-        1. default via 20.20.20.1
-    5. systemctl restart network
-    6. reboot
-    7. apt-get update
+ 1. hostnamectl set-hostname web-r
+2. cd /etc/net/ifaces/ens18/
+3. vim options
+    1. BOOTPROTO=static
+4. vim ipv4address
+    1. 20.20.20.100/24
+5. vim ipv4route
+    1. default via 20.20.20.1
+6. systemctl restart network
+7. reboot
+8. apt-get update && apt-get install chrony bind bind-utils nfs-clients -y
 - SRV-L
-    1. hostnamectl set-hostname srv-l; exec bash
-    2. vim /etc/net/ifaces/enp0s3/options
-        1. BOOTPROTO=static
-    3. vim /etc/net/ifaces/enp0s3/ipv4address
-        1. 10.10.10.100/24
-    4. vim /etc/net/ifaces/enp0s3/ipv4route
-        1. default via 10.10.10.1
-    5. systemctl restart network
-    6. reboot
-    7. apt-get update
+   1. hostnamectl set-hostname srv-l
+2. cd /etc/net/ifaces/ens18/
+3. vim options
+    1. BOOTPROTO=static
+4. vim ipv4address
+    1. 10.10.10.100/24
+5. vim ipv4route
+    1. default via 10.10.10.1
+6. systemctl restart network
+7. reboot
+8. apt-get update && apt-get install chrony bind bind-utils nfs-server -y
