@@ -4,6 +4,8 @@
 4. Если на L-SRV или ADMIN-PC пропали ip адреса, полученные от dhcp сервера на RTR-L, попробуйте systemctl restart network на них, если не помогло, то на RTR-L пишем systemctl restart dhcpd, systemctl status dhcpd, если в статусе dhcp нет ошибок, то переходим опять на L-SRV или ADMIN-PC, где пропали адреса и заново пишем systemctl restart network.
 5. Если в /etc/resolv.conf меняется сам по себе и там появляется nameserver 127.0.0.1 и добавляется еще какой-то option, то пишите нужные настройки и chattr +i /etc/resolv.conf
 6. Если на L-SRV kinit administrator не работает, то надо на L-SRV написать systemctl disable --now krb5kdc, systemctl stop samba, systemctl start samba, systemctl restart samba, еще надо проверить systemctl status samba на отсутствие ошибок.
+7. Если у ADMIN-PC или L-SRV адрес полученный по DHCP не тот, который нужен по таблице, например у ADMIN-PC 20.20.20.151 или 20.20.20.152, а не 20.20.20.150, то перепроверяем ens19/options на ADMIN-PC, делаем systemctl restart network, если все равно такой-же адрес, то заходим в RTR-L, открываем файл vim /var/lib/dhcp/dhcpd/state/dhcpd.leases и комментируем все записи lease **server-duid не трогаем** (см. рисунок ниже), далее systemctl restart dhcp, потом переходим на ADMIN-PC и пишем systemctl restart network
+8. Если при настройке домена после команды samba-tool domain provision на L-SRV в скобках после Realm написано не au.team, проверьте /etc/hostname, там должно быть l-srv.au.team, если там так, то reboot, если не так, то hostnamectl set-hostname l-srv.au.team и потом reboot  
 
 
 
