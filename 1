@@ -1,0 +1,248 @@
+RTR-L
+
+
+1. hostnamectl set-hostname rtr-l.au.team
+2. vim /etc/net/sysctl.conf 
+    1. net.ipv4.ip_forward = 1
+3. cd /etc/net/ifaces
+4. cp -r ens19/ ens20
+5. vim ens20/options
+    1. BOOTPROTO=static
+6. cp -r ens20/ enp0s21
+7. vim ens20/ipv4address
+    1. 10.10.10.1/24
+8. vim ens21/ipv4address
+    1. 20.20.20.1/24
+9. systemctl restart network
+10. reboot
+11. apt-get update && apt-get install nftables dhcp-server bind-utils -y
+12. host youtube.com
+13. смотрим ip адреса ютуба для написания правил блокировки в nftables, которые получим, IPv6 адреса не нужно запоминать
+14. Получили 173.194.220.91 (у вас может быть другой адрес!) и еще 3 других адреса, надо для правил в nftables запомнить 173.194.0.0/16, то есть первые два числа
+15. host www.youtube.com
+16. Смотрим этот адрес для написания правил блокировки в nftables
+17. Получили 64.233.161.198 (у вас может быть другой адрес!), надо для правил в nftables запомнить 64.233.0.0/16, то есть первые два числа
+18. vim /etc/nftables/nftables.nft
+    1. в начало:
+    flush ruleset;
+    2. в chain input:
+    ip saddr 10.10.10.100 icmp type echo-request drop;
+    ip saddr 10.10.10.100 tcp dport 65000 drop;
+    3. в chain forward:
+    ip daddr 64.233.0.0/16 drop; (здесь 64.233.0.0/16 адрес, который мы запомнили ранее)
+    ip daddr 173.194.0.0/16 drop; (здесь 173.194.0.0/16 адрес, который мы запомнили ранее)
+    4. в chain output:
+    ip daddr 10.10.10.100 icmp type echo-request drop;
+    ip daddr 64.233.0.0/16 drop; (здесь 64.233.0.0/16 адрес, который мы запомнили ранее)
+    ip daddr 173.194.0.0/16 drop; (здесь 173.194.0.0/16 адрес, который мы запомнили ранее)
+    5. в конец:
+    table ip nat {
+      chain postrouting {
+         type nat hook postrouting priority 0;
+         oifname ens19 masquerade;
+      }
+      chain prerouting {
+         type nat hook prerouting priority 0;
+         tcp dport 65000 dnat to 10.10.10.100:22;
+      }
+    }
+
+    19. systemctl enable --now nftables
+20. nft -f /etc/nftables/nftables.nft
+21. vim /etc/dhcp/dhcpd.conf
+    option subnet-mask 255.255.255.0;
+    option domain-name "au.team";
+    option domain-name-servers 10.10.10.100;
+    subnet 10.10.10.0 netmask 255.255.255.0 {
+      range 10.10.10.100 10.10.10.120;
+      option routers 10.10.10.1;
+}
+subnet 20.20.20.0 netmask 255.255.255.0 {
+  range 20.20.20.150 20.20.20.200;
+  option routers 20.20.20.1;
+}
+host l-srv {
+  hardware ethernet (MAC-адрес l-srv см. пункт b);
+  fixed-address 10.10.10.100;
+}
+Чтобы узнать MAC-адрес l-srv, пишем на l-srv команду ip -c a, ищем строку link/ether xx:xx:xx:xx:xx:xx, 
+вот здесь, тут написан MAC-адрес, его записываем в hardware ethernet в пункте выше БЕЗ СКОБОК
+22. im /etc/sysconfig/dhcpd
+    1. DHCPDARGS="ens20 ens21"
+23. systemctl enable --now dhcpd
+24. vim /etc/openssh/sshd_config
+    1. расскоментируем Port 22
+    2. расскоментируем PasswordAuthentication yes
+25. systemctl restart sshd
+
+ADMIN-PC
+
+1. hostnamectl set-hostname admin-pc.au.team
+2. vim /etc/net/ifaces/ens19/options
+    1. BOOTPROTO=dhcp
+    2. TYPE=eth
+    3. NM_CONTROLLED=no
+    4. DISABLED=no
+    3. reboot
+4. Так как DNS на SRV еще не настроили, а интернет нужен, то в 
+vim /etc/resolv.conf пишем:
+    1. добавить в начало:
+    nameserver 94.232.137.104
+    2. после того, как мы настроили свой DNS сервер в лице L-SRV и он работает, а именно после 15 пунтка в L-SRV, надо в /etc/resolv.conf указать только domain au.team и nameserver 10.10.10.100, больше ничего.
+5. Теперь на ADMIN-PC должен быть выход в интернет, заходим в Firefox куда надо
+6. apt-get update && apt-get install samba-client krb5-kdc task-auth-ad-sssd -y
+7. (После настройки L-SRV)
+
+
+
+
+
+
+
+ADMIN-PC
+
+
+1. hostnamectl set-hostname l-srv.au.team
+2. vim /etc/net/ifaces/ens19/options
+    1. BOOTPROTO=dhcp
+    2. TYPE=eth
+    3. NM_CONTROLLED=no
+    4. DISABLED=no
+3. reboot
+4. vim /etc/resolv.conf
+    1. в начало:
+    nameserver 94.232.137.104
+5. apt-get update && apt-get install task-samba-dc krb5-kdc -y
+6. systemctl stop smb nmb krb5kdc slapd bind dnsmasq
+7. systemctl disable smb nmb krb5kdc slapd bind dnsmasq
+8. rm -f /etc/samba/smb.conf
+9. rm -rf /var/lib/samba
+10. rm -rf /var/cache/samba
+11. mkdir -p /var/lib/samba/sysvol
+12. samba-tool domain provision
+
+Realm [AU.TEAM]: //жмем Enter
+Domain [AU]: //жмем Enter
+Server Role (dc, member, standalone) [dc]: //жмем Enter
+DNS backend (SAMBA_INTERNAL, BIND9_FLATFILE, BIND9_DLZ, NONE) [SAMBA_INTERNAL]: //жмем Enter
+DNS forwarder IP address (write 'none' to disable forwarding) [94.232.137.104]: //если в квадратных скобках не указан 94.232.137.104, то пишем 94.232.137.104 и жмем Enter, если уже указан, то просто жмем Enter.
+Administrator password: //Вводим пароль P@ssw0rd
+Retype password: //Повторяем пароль P@ssw0rd
+
+13. systemctl enable --now samba
+14. reboot
+15. cp /var/lib/samba/private/krb5.conf /etc/krb5.conf
+16. vim /etc/resolv.conf
+    1. должно быть указано только:
+    domain au.team
+    nameserver 10.10.10.100
+    systemctl restart network
+    18. проверяем (на всякий случай):
+    1. samba-tool domain info 10.10.10.100
+    2. kinit administrator
+    вводим пароль P@ssw0rd
+    3. klist
+19. for i in {1..15}; do samba-tool user create user$i.userl P@ssw0rd; done;
+20. for i in {1..5}; do samba-tool user create user$i.admin P@ssw0rd; done;
+21. samba-tool group add left
+22. samba-tool group add admin
+23. for i in {1..15}; do samba-tool group addmembers left user$i.userl; done;
+24. for i in {1..5}; do samba-tool group addmembers admin user$i.admin; done;
+25. samba-tool dns zonecreate 10.10.10.100 10.10.10.in-addr.arpa -U administrator
+    1. пароль P@ssw0rd
+26. samba-tool dns zonecreate 10.10.10.100 20.20.20.in-addr.arpa -U administrator
+    1. пароль P@ssw0rd
+27. samba-tool dns add 10.10.10.100 au.team admin-pc A 20.20.20.150 -U administrator
+    1. пароль P@ssw0rd
+28. samba-tool dns add 10.10.10.100 au.team rtr-l A 20.20.20.1 -U administrator
+    1. пароль P@ssw0rd
+29. samba-tool dns add 10.10.10.100 au.team rtr-l A 10.10.10.1 -U administrator
+    1. пароль P@ssw0rd
+30. samba-tool dns add 10.10.10.100 10.10.10.in-addr.arpa 1 PTR rtr-l.au.team -U administrator
+    1. пароль P@ssw0rd
+31. samba-tool dns add 10.10.10.100 10.10.10.in-addr.arpa 100 PTR l-srv.au.team -U administrator
+    1. пароль P@ssw0rd
+32. samba-tool dns add 10.10.10.100 20.20.20.in-addr.arpa 150 PTR admin-pc.au.team -U administrator
+    1. пароль P@ssw0rd
+33. samba-tool dns add 10.10.10.100 20.20.20.in-addr.arpa 1 PTR rtr-l.au.team -U administrator
+    1. пароль P@ssw0rd
+34. samba-tool dns add 10.10.10.100 au.team dc CNAME l-srv.au.team -U administrator
+    1. пароль P@ssw0rd
+35. Теперь, так как мы настроили свой DNS сервер и если он работает нормально, надо на всех машинах в /etc/resolv.conf указать domain au.team и nameserver 10.10.10.100, больше ничего, вот так:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    1. apt-get update && apt-get install nftables -y
+    2. vim /etc/nftables/nftables.nft
+        1. в начало:
+        flush ruleset
+        2. в конец:
+        table ip nat {
+          chain postrouting {
+             type nat hook postrouting priority 0;
+             oifname enp0s3 (интерфейс в сторону интернета) masquerade
+          }
+        }
+
+        3. systemctl enable --now nftables
+4. nft -f /etc/nftables/nftables.nft
+
+rtr-l
+1. Если “ping 8.8.8.8” идет, а “ping ya.ru” не идет, то в 
+/etc/resolv.conf записываем в начало nameserver 94.232.137.104 (ip адрес DNS сервера указанный в 5 пункте задания)
+2. apt-get update && apt-get install nftables -y
+1. vim /etc/nftables/nftables.nft
+    1. в начало:
+    flush ruleset;
+    2. в конец:
+    table ip nat {
+      chain postrouting {
+         type nat hook postrouting priority 0;
+         ip saddr 10.10.10.0/24 oifname ens18 masquerade;
+      }
+      chain prerouting {
+         type nat hook prerouting priority 0;
+         tcp dport 2024 dnat to 10.10.10.110:2024;
+      }
+    }
+
+    4. systemctl enable --now nftables
+5. nft -f /etc/nftables/nftables.nft
+
+- RTR-R
+    1. Если “ping 8.8.8.8” идет, а “ping ya.ru” не идет, то в 
+    /etc/resolv.conf записываем в начало nameserver 94.232.137.104 (ip адрес DNS сервера указанный в 5 пункте задания)
+    2. apt-get update && apt-get install nftables -y
+  1. vim /etc/nftables/nftables.nft
+    1. в начало:
+    flush ruleset;
+    2. в конец:
+    table ip nat {
+      chain postrouting {
+         type nat hook postrouting priority 0;
+         ip saddr 20.20.20.0/24 oifname ens18 masquerade;
+      }
+      chain prerouting {
+         type nat hook prerouting priority 0;
+         tcp dport 2024 dnat to 20.20.20.100:2024;
+      }
+    }
+
+        4. systemctl enable --now nftables
+5. nft -f /etc/nftables/nftables.nft
