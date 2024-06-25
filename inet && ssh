@@ -1,0 +1,45 @@
+Для быстрого получения доступа в интернет на ADMIN-PC, чтобы зайти в интернет в свою методичку
+
+RTR-L
+
+1. vim /etc/net/sysctl.conf 
+    1. net.ipv4.ip_forward = 1
+2. cd /etc/net/ifaces
+3. cp -r ens19/ ens21
+4. vim ens21/options
+    1. BOOTPROTO=static
+5. vim ens21/ipv4address
+    1. 20.20.20.1/24
+6. reboot
+7. apt-get update && apt-get install nftables -y
+8. vim /etc/nftables/nftables.nft
+    1. в начало:
+    flush ruleset;
+    2. в конец:
+    table ip nat {
+      chain postrouting {
+         type nat hook postrouting priority 0;
+         oifname ens19 masquerade;
+      }
+    }
+
+9. systemctl enable --now nftables
+10. nft -f /etc/nftables/nftables.nft
+
+ADMIN-PC
+
+1. cd /etc/net/ifaces/ens19
+2. vim options
+    1. BOOTPROTO=static
+3. vim ipv4address
+    1. 20.20.20.2.24
+4. vim ipv4route
+    1. default via 20.20.20.1
+5. reboot
+6. в /etc/resolv.conf должен быть указан nameserver 94.232.137.104, если нет его, прописываем в начало файла сами
+7. все, теперь должен быть интернет, заходите в Firefox на admin-pc и по методичке дальше настриваете, можете
+После того, как зашли в интернет на ADMIN-PC, вы можете пожете подключиться по SSH с ADMIN-PC до RTR-L,
+так как ip адреса пока только на них есть для этого на ADMIN-PC надо написать ssh user@20.20.20.2, ответить yes, ввести пароль от user - resu, все, вы зашли на RTR-L с консоли ADMIN-PC, 
+теперь вы можете в браузере открыть свою методичку,
+копировать оттуда что надо и вставлять в консоль, если что в консоли скопировать вставить через Shift (Ctrl + Shift + C и Ctrl + Shift + V). 
+
