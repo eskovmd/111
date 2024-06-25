@@ -1,0 +1,51 @@
+1. Если есть ping 8.8.8.8, но нет ping ya.ru, то проблема в DNS сервере, заходим в /etc/resolv.conf и добавляем в начало nameserver 94.232.137.104, НО после того, как мы настроили свой DNS сервер в лице L-SRV и он работает нормально, а именно после 15 пунтка в L-SRV, надо в /etc/resolv.conf указать только domain au.team и nameserver 10.10.10.100, больше ничего.
+2. Если проблема с Samba на L-SRV, просто systemctl disable --now bind и systemctl restart samba
+3. Если host au.team или dig au.team или nslookup au.team не работают, то указываем в /etc/resolv.conf только domain au.team и nameserver 10.10.10.100, больше ничего.
+4. Если на L-SRV или ADMIN-PC пропали ip адреса, полученные от dhcp сервера на RTR-L, попробуйте systemctl restart network на них, если не помогло, то на RTR-L пишем systemctl restart dhcpd, systemctl status dhcpd, если в статусе dhcp нет ошибок, то переходим опять на L-SRV или ADMIN-PC, где пропали адреса и заново пишем systemctl restart network.
+5. Если в /etc/resolv.conf меняется сам по себе и там появляется nameserver 127.0.0.1 и добавляется еще какой-то option, то пишите нужные настройки и chattr +i /etc/resolv.conf
+6. Если на L-SRV kinit administrator не работает, то надо на L-SRV написать systemctl disable --now krb5kdc, systemctl stop samba, systemctl start samba, systemctl restart samba, еще надо проверить systemctl status samba на отсутствие ошибок.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      https://amirkhans.notion.site/1ec7c3d805674e459a7b202d2d9178de   
